@@ -1,7 +1,6 @@
-# Depth first search implementation of 8/15-puzzle.
-# All the nodes are placed in a priority queue (minHeap) which orders them by path-cost (how many moves it took the initial state to get to the current state)
+#A* search with Manhattan heuristics.
 
-# "State" class will act as our node
+# this class will act as our node
 # it will have 4 componenets
 # 1. STATE : the state in the state space to which the node corresponds;
 # 2. PARENT : the node in the search tree that generated this node;
@@ -27,15 +26,35 @@ class State(object):
         if not path_cost:
             path_cost = 0
         self.path_cost = path_cost
+        self.goal = [1,2,3,4,5,6,7,8,9] #replaced the 0 with a 9 for ease of computation in manhatten distance fn
 
-    def __eq__(self, other):
+    def priority(self):
+        return self.mhd() + self.path_cost
+
+    #manhattan distance
+    def mhd(self):
+        result = 0
+        length = len(self.state) #total size of the puzzle
+        width = int(length ** 0.5)
+        for i in xrange(length):
+            if self.state[i] == 0 and i != length - 1:
+                result += abs(i / width - (length - 1) / width) + abs(i % width - (length - 1) % width)
+            elif self.state[i] != self.goal[i]:
+                result += abs(i / width - (self.state[i] - 1) / width) + abs(i % width - (self.state[i] - 1) % width)
+        return result
+
+
+    def __cmp__(self, other):
         return self.state == other.state
 
-    def __lt__(self, other):
-        return self.path_cost < other.path_cost
+    def __eq__(self, other):
+        return self.__cmp__(other)
 
     def __hash__(self):
         return hash(str(self.state))
+
+    def __lt__(self, other):
+        return self.priority() < other.priority()
 
     #Nice display of puzzle. Could imporve display with padding (when dealing with 4X4 size and up)
     def displayTile(self):
@@ -117,7 +136,7 @@ class minHeap(object):
     def add(self, item):
         heappush(self.heap, item)
 
-    def poll(self):
+    def poptop(self):
         return heappop(self.heap)
 
     def __len__(self):
@@ -140,7 +159,7 @@ class SolvingAgent(object):
         return our_solution
 
     def solve(self):
-        our_set = minHeap()
+        our_set = minHeap() #will hold the frontier of nodes
         our_set.add(self.start_state)
         used_set = set() #will hold the states we already visited so to not visit them again
         moves = 0
@@ -156,10 +175,10 @@ class SolvingAgent(object):
         explored_states = 0
         start = time.time()
         while our_set:
-            current_state = our_set.poll()
-            for state in current_state.getPossibleMoves(moves):
-                if state not in used_set:
-                    if state.checkState(): #if current state is final state
+            current_state = our_set.poptop() #current state is the state with minimum path_cost (i.e. moves)
+            for state in current_state.getPossibleMoves(moves): #getting the states that are connected to current state
+                if state not in used_set: #need only unexplored states
+                    if state.checkState(): # check if current state is final state
                         end = time.time()
                         path = self.get_parentStates(state)
                         for state in reversed(path):
@@ -173,8 +192,9 @@ class SolvingAgent(object):
                         print "The size of the closed set %d" % len(used_set)
                         print "The letter solution is %s\n" % letter_solution
                         return
-                    our_set.add(state)
-                    explored_states += 1
+                    else:  #current state is not
+                        our_set.add(state)
+                        explored_states += 1
             used_set.add(current_state)
             moves += 1
 
